@@ -13,8 +13,8 @@ WORKDIR /app
 COPY pom.xml .
 # Copy the backend source code
 COPY src ./src
-# Copy the compiled frontend code from local filesystem
-COPY src/main/resources/static ./src/main/resources/static
+# Copy the compiled frontend code from the first stage
+COPY --from=frontend_build /app/frontend/build ./src/main/resources/static
 # Build the final JAR file - skip tests completely
 RUN mvn clean package -Dmaven.test.skip=true -Dcheckstyle.skip=true
 
