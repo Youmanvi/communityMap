@@ -1,0 +1,149 @@
+# CommunityMap Python Tools and Scripts
+# This file contains Python dependencies for development tools and scripts
+
+# =============================================================================
+# Development Tools
+# =============================================================================
+
+# HTTP Testing and API Development
+requests>=2.31.0
+httpx>=0.24.0
+
+# Data Processing and Analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Geospatial Data Processing
+geopandas>=0.13.0
+shapely>=2.0.0
+folium>=0.14.0
+
+# Testing and Quality Assurance
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Documentation
+sphinx>=7.1.0
+sphinx-rtd-theme>=1.3.0
+
+# Environment Management
+python-dotenv>=1.0.0
+
+# =============================================================================
+# Data Migration and ETL Tools
+# =============================================================================
+
+# MongoDB Integration
+pymongo>=4.5.0
+motor>=3.3.0
+
+# CSV and JSON Processing
+csvkit>=1.1.0
+jq>=1.6.0
+
+# =============================================================================
+# Monitoring and Logging
+# =============================================================================
+
+# Application Monitoring
+prometheus-client>=0.17.0
+grafana-api>=1.0.3
+
+# Logging
+structlog>=23.1.0
+
+# =============================================================================
+# Performance Testing
+# =============================================================================
+
+# Load Testing
+locust>=2.16.0
+wrk>=0.1.0
+
+# =============================================================================
+# Security Tools
+# =============================================================================
+
+# Security Scanning
+bandit>=1.7.5
+safety>=2.3.5
+
+# =============================================================================
+# Deployment and DevOps
+# =============================================================================
+
+# Container Management
+docker>=6.1.0
+docker-compose>=1.29.0
+
+# Cloud Services
+boto3>=1.28.0
+azure-sdk>=1.0.0
+
+# =============================================================================
+# Data Visualization
+# =============================================================================
+
+# Plotting and Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+
+# Interactive Maps
+ipyleaflet>=0.17.0
+
+# =============================================================================
+# Machine Learning (Optional)
+# =============================================================================
+
+# Basic ML Libraries
+scikit-learn>=1.3.0
+scipy>=1.11.0
+
+# Deep Learning (if needed)
+tensorflow>=2.13.0
+torch>=2.0.0
+
+# =============================================================================
+# Installation Commands
+# =============================================================================
+
+# Install all dependencies
+# pip install -r requirements.txt
+
+# Install development dependencies only
+# pip install -r requirements.txt -e ".[dev]"
+
+# Install with specific Python version
+# python3.9 -m pip install -r requirements.txt
+
+# =============================================================================
+# Usage Examples
+# =============================================================================
+
+# Run tests
+# pytest tests/
+
+# Format code
+# black src/
+# flake8 src/
+
+# Security scan
+# bandit -r src/
+# safety check
+
+# Performance testing
+# locust -f tests/load_test.py
+
+# =============================================================================
+# Version Constraints
+# =============================================================================
+
+# Python Version
+# python>=3.9,<3.12
+
+# Package Versions (compatible with Python 3.9+)
+# All packages listed above are compatible with Python 3.9-3.11

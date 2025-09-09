@@ -1,0 +1,30 @@
+# CommunityMap Development Dockerfile
+# For local development with hot reload
+
+FROM openjdk:17-jdk-slim
+
+# Install Maven
+RUN apt-get update && apt-get install -y maven curl && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy Maven files
+COPY pom.xml .
+
+# Download dependencies (for better caching)
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Expose port
+EXPOSE 8080
+
+# Set environment variables
+ENV SPRING_PROFILES_ACTIVE=development
+ENV MONGODB_URI=mongodb://mongodb:27017/community_map
+ENV SERVER_PORT=8080
+
+# Run the application with hot reload
+CMD ["mvn", "spring-boot:run"]

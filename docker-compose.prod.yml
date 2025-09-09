@@ -1,0 +1,30 @@
+# Docker Compose for Production Deployment
+
+version: '3.8'
+
+services:
+  community-map-app:
+    build: .
+    ports:
+      - "8080:8080"
+    container_name: community-map-prod
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - MONGODB_URI=mongodb://mongodb:27017/communitymap
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    
+  mongodb:
+    image: mongo:7.0
+    container_name: community-map-mongo-prod
+    environment:
+      - MONGO_INITDB_DATABASE=communitymap
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+
+volumes:
+  mongodb_data:
