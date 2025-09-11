@@ -156,3 +156,14 @@
   background: #6c757d;
   cursor: not-allowed;
 }
+
+.manual-mode-info {
+  background: #fff3cd;
+  color: #856404;
+  padding: 10px;
+  border-radius: 6px;
+  border-left: 3px solid #ffc107;
+  font-size: 12px;
+  margin: 0;
+  font-weight: 500;
+}

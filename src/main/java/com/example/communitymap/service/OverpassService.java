@@ -57,11 +57,13 @@ public class OverpassService {
     
     /**
      * Fetch all community resources from OpenStreetMap using Overpass API
-     * Optimized single query approach for better performance
+     * Optimized single query approach for better performance - manual updates only
      */
     @Cacheable(value = "allResources", key = "#lat + '_' + #lon + '_' + #radiusKm")
     public List<Resource> fetchAllResources(double lat, double lon, double radiusKm) {
-        String query = buildCombinedQuery(lat, lon, radiusKm);
+        // Limit radius to prevent excessive data fetching
+        double limitedRadius = Math.min(radiusKm, 5.0); // Max 5km radius
+        String query = buildCombinedQuery(lat, lon, limitedRadius);
         return executeOverpassQuery(query, "ALL");
     }
     

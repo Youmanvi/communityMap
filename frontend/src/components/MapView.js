@@ -46,10 +46,13 @@ const MapView = () => {
       
       // Calculate center and radius from bounds
       const center = bounds.getCenter();
-      const radius = Math.max(
-        center.distanceTo(bounds.getNorthEast()),
-        center.distanceTo(bounds.getSouthWest())
-      ) / 1000; // Convert to kilometers
+      const radius = Math.min(
+        Math.max(
+          center.distanceTo(bounds.getNorthEast()),
+          center.distanceTo(bounds.getSouthWest())
+        ) / 1000, // Convert to kilometers
+        5.0 // Max 5km radius for performance
+      );
       
       // Always try to fetch fresh data from Overpass API first
       try {
@@ -94,25 +97,11 @@ const MapView = () => {
   }, []);
 
 
-  // Fetch all resources on component mount
+  // Initialize with empty state - no automatic loading
   useEffect(() => {
-    const fetchResources = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await axios.get('/api/resources');
-        setResources(response.data);
-        setFilteredResources(response.data);
-      } catch (err) {
-        const errorMessage = err.response?.data?.message || err.message || 'Failed to load resources';
-        setError(errorMessage);
-        console.error('Error fetching resources:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResources();
+    setLoading(false);
+    setResources([]);
+    setFilteredResources([]);
   }, []);
 
   // Cleanup debounce timeout on unmount
@@ -237,20 +226,7 @@ const MapView = () => {
     setResources([]);
   };
 
-  const refreshAllResources = async () => {
-    setIsRefreshing(true);
-    setError(null);
-    try {
-      const response = await axios.get('/api/resources');
-      setResources(response.data);
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to refresh resources';
-      setError(errorMessage);
-      console.error('Error refreshing resources:', err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  // Manual mode - no automatic refresh functionality
 
   const getMarkerColor = (resource) => {
     // Priority: nearby analysis > visible area > resource type
@@ -326,8 +302,6 @@ const MapView = () => {
         nearbyCount={nearbyResources.length}
         onClearAnalysis={clearAnalysis}
         isAnalyzing={isAnalyzing}
-        onRefreshResources={refreshAllResources}
-        isRefreshing={isRefreshing}
       />
 
       {/* Map Error Message */}
@@ -337,7 +311,7 @@ const MapView = () => {
         </div>
       )}
 
-      {/* Analyze Button */}
+      {/* Manual Update Button */}
       <div className="analyze-button-container">
         <button 
           className={`analyze-button ${visibleResources.length === 0 ? 'analyze-button-pulse' : ''}`}
@@ -347,18 +321,23 @@ const MapView = () => {
           {isLoadingVisible ? (
             <>
               <LoadingSpinner size="small" />
-              Analyzing...
+              Loading Resources...
             </>
           ) : (
             <>
               <span className="analyze-icon">🔍</span>
-              {visibleResources.length === 0 ? 'Analyze Visible Area' : 'Refresh Area Data'}
+              {visibleResources.length === 0 ? 'Load Visible Resources' : 'Refresh Resources'}
             </>
           )}
         </button>
         {visibleResources.length === 0 && (
           <div className="analyze-hint">
-            Click to load resources for the current map view
+            Click to load community resources for the current map view
+          </div>
+        )}
+        {visibleResources.length > 0 && (
+          <div className="analyze-success">
+            ✓ Loaded {visibleResources.length} resources
           </div>
         )}
       </div>

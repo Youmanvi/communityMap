@@ -1,7 +1,7 @@
 import React from 'react';
 import './FilterPanel.css';
 
-const FilterPanel = ({ filters, onFilterChange, nearbyCount, onClearAnalysis, isAnalyzing, onRefreshResources, isRefreshing }) => {
+const FilterPanel = ({ filters, onFilterChange, nearbyCount, onClearAnalysis, isAnalyzing }) => {
   return (
     <div className="filter-panel">
       <div className="panel-section">
@@ -42,13 +42,9 @@ const FilterPanel = ({ filters, onFilterChange, nearbyCount, onClearAnalysis, is
           </label>
         </div>
         <div className="refresh-section">
-          <button 
-            onClick={onRefreshResources}
-            disabled={isRefreshing}
-            className="refresh-button"
-          >
-            {isRefreshing ? 'Refreshing...' : 'Refresh All Resources'}
-          </button>
+          <p className="manual-mode-info">
+            💡 Use the "Load Visible Resources" button to manually load data for the current map view
+          </p>
         </div>
       </div>
       

@@ -121,6 +121,22 @@
   }
 }
 
+.analyze-success {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: rgba(40, 167, 69, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1001;
+  animation: fadeIn 0.3s ease;
+  font-weight: 500;
+}
+
 .popup-content {
   min-width: 200px;
 }
