@@ -32,6 +32,7 @@ const MapView = () => {
   const [visibleResources, setVisibleResources] = useState([]);
   const [mapBounds, setMapBounds] = useState(null);
   const [isLoadingVisible, setIsLoadingVisible] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const mapRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
 
@@ -92,16 +93,6 @@ const MapView = () => {
     }
   }, []);
 
-  // Debounced function to fetch resources when map moves
-  const debouncedFetchResources = useCallback((bounds) => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    
-    debounceTimeoutRef.current = setTimeout(() => {
-      fetchResourcesForBounds(bounds);
-    }, 1000); // 1 second debounce
-  }, [fetchResourcesForBounds]);
 
   // Fetch all resources on component mount
   useEffect(() => {
@@ -124,13 +115,24 @@ const MapView = () => {
     fetchResources();
   }, []);
 
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Filter resources based on active filters
   useEffect(() => {
-    const filtered = resources.filter(resource => 
+    // Use visible resources if available, otherwise use all resources
+    const sourceResources = visibleResources.length > 0 ? visibleResources : resources;
+    const filtered = sourceResources.filter(resource => 
       filters[resource.type]
     );
     setFilteredResources(filtered);
-  }, [resources, filters]);
+  }, [resources, visibleResources, filters]);
 
   const handleFilterChange = (type) => {
     setFilters(prev => ({
@@ -197,18 +199,32 @@ const MapView = () => {
   const MapEvents = () => {
     useMapEvents({
       moveend: (e) => {
-        const bounds = e.target.getBounds();
-        setMapBounds(bounds);
-        // Clear visible resources when map moves to show fresh data
-        setVisibleResources([]);
-        debouncedFetchResources(bounds);
+        // Debounce map events to prevent excessive updates
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+        }
+        
+        debounceTimeoutRef.current = setTimeout(() => {
+          const bounds = e.target.getBounds();
+          setMapBounds(bounds);
+          // Clear visible resources when map moves - user must manually refresh
+          setVisibleResources([]);
+          setMapError(null); // Clear any previous errors
+        }, 300); // 300ms debounce
       },
       zoomend: (e) => {
-        const bounds = e.target.getBounds();
-        setMapBounds(bounds);
-        // Clear visible resources when map zooms to show fresh data
-        setVisibleResources([]);
-        debouncedFetchResources(bounds);
+        // Debounce map events to prevent excessive updates
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+        }
+        
+        debounceTimeoutRef.current = setTimeout(() => {
+          const bounds = e.target.getBounds();
+          setMapBounds(bounds);
+          // Clear visible resources when map zooms - user must manually refresh
+          setVisibleResources([]);
+          setMapError(null); // Clear any previous errors
+        }, 300); // 300ms debounce
       }
     });
     return null;
@@ -221,30 +237,68 @@ const MapView = () => {
     setResources([]);
   };
 
+  const refreshAllResources = async () => {
+    setIsRefreshing(true);
+    setError(null);
+    try {
+      const response = await axios.get('/api/resources');
+      setResources(response.data);
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to refresh resources';
+      setError(errorMessage);
+      console.error('Error refreshing resources:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const getMarkerColor = (resource) => {
+    // Priority: nearby analysis > visible area > resource type
     if (nearbyResources.some(nr => nr.id === resource.id)) {
-      return '#dc3545'; // Red for nearby resources
+      return '#dc3545'; // Red for nearby analysis resources
     }
     if (visibleResources.some(vr => vr.id === resource.id)) {
       return '#17a2b8'; // Cyan for visible area resources
     }
-    // Different colors for different resource types
+    // Distinct colors for different resource types
     switch (resource.type) {
-      case 'LIBRARY': return '#28a745';
-      case 'CLINIC': return '#007bff';
-      case 'FOOD_BANK': return '#ffc107';
-      default: return '#6c757d';
+      case 'LIBRARY': return '#28a745'; // Green for libraries
+      case 'CLINIC': return '#007bff'; // Blue for clinics
+      case 'FOOD_BANK': return '#ffc107'; // Yellow for food banks
+      default: return '#6c757d'; // Gray for unknown types
     }
   };
 
+  // Memoize marker icons to prevent unnecessary re-renders
+  const markerIconCache = useRef(new Map());
+  
   const getMarkerIcon = (resource) => {
+    const cacheKey = `${resource.type}-${getMarkerColor(resource)}`;
+    
+    if (markerIconCache.current.has(cacheKey)) {
+      return markerIconCache.current.get(cacheKey);
+    }
+    
     const color = getMarkerColor(resource);
-    return L.divIcon({
+    const icon = getResourceIcon(resource.type);
+    const markerIcon = L.divIcon({
       className: 'custom-marker',
-      html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: bold;">${resource.type.charAt(0)}</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      html: `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; font-weight: bold; cursor: pointer;">${icon}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
     });
+    
+    markerIconCache.current.set(cacheKey, markerIcon);
+    return markerIcon;
+  };
+
+  const getResourceIcon = (type) => {
+    switch (type) {
+      case 'LIBRARY': return '📚';
+      case 'CLINIC': return '🏥';
+      case 'FOOD_BANK': return '🍽️';
+      default: return '📍';
+    }
   };
 
   if (loading) {
@@ -272,6 +326,8 @@ const MapView = () => {
         nearbyCount={nearbyResources.length}
         onClearAnalysis={clearAnalysis}
         isAnalyzing={isAnalyzing}
+        onRefreshResources={refreshAllResources}
+        isRefreshing={isRefreshing}
       />
 
       {/* Map Error Message */}
@@ -284,7 +340,7 @@ const MapView = () => {
       {/* Analyze Button */}
       <div className="analyze-button-container">
         <button 
-          className="analyze-button"
+          className={`analyze-button ${visibleResources.length === 0 ? 'analyze-button-pulse' : ''}`}
           onClick={analyzeVisibleArea}
           disabled={isLoadingVisible}
         >
@@ -294,9 +350,17 @@ const MapView = () => {
               Analyzing...
             </>
           ) : (
-            'Analyze Visible Area'
+            <>
+              <span className="analyze-icon">🔍</span>
+              {visibleResources.length === 0 ? 'Analyze Visible Area' : 'Refresh Area Data'}
+            </>
           )}
         </button>
+        {visibleResources.length === 0 && (
+          <div className="analyze-hint">
+            Click to load resources for the current map view
+          </div>
+        )}
       </div>
 
       {/* Map */}
@@ -313,8 +377,8 @@ const MapView = () => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
-        {/* Render resources - show visible area resources if available, otherwise show filtered resources */}
-        {(visibleResources.length > 0 ? visibleResources : filteredResources).map(resource => (
+        {/* Render filtered resources */}
+        {filteredResources.map(resource => (
           <Marker 
             key={visibleResources.length > 0 ? `visible-${resource.id}` : resource.id} 
             position={[resource.location.y, resource.location.x]}
@@ -353,15 +417,6 @@ const MapView = () => {
         )}
       </MapContainer>
 
-      {/* Resource Count Display */}
-      <div className="resource-count">
-        Showing {visibleResources.length > 0 ? visibleResources.length : filteredResources.length} resources
-        {visibleResources.length > 0 && (
-          <span className="visible-count">
-            • Live data from visible area
-          </span>
-        )}
-      </div>
     </div>
   );
 };
