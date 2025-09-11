@@ -103,10 +103,26 @@ public class ResourceController {
                         .filter(r -> "CLINIC".equals(r.getType()))
                         .collect(java.util.stream.Collectors.toList());
                     break;
+                case "HOSPITAL":
+                    resources = resources.stream()
+                        .filter(r -> "HOSPITAL".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "PHARMACY":
+                    resources = resources.stream()
+                        .filter(r -> "PHARMACY".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
                 case "FOOD":
                 case "FOOD_BANK":
                     resources = resources.stream()
                         .filter(r -> "FOOD_BANK".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "SOCIAL":
+                case "SOCIAL_FACILITY":
+                    resources = resources.stream()
+                        .filter(r -> "SOCIAL_FACILITY".equals(r.getType()))
                         .collect(java.util.stream.Collectors.toList());
                     break;
             }
@@ -141,10 +157,26 @@ public class ResourceController {
                         .filter(r -> "CLINIC".equals(r.getType()))
                         .collect(java.util.stream.Collectors.toList());
                     break;
+                case "HOSPITAL":
+                    fetchedResources = fetchedResources.stream()
+                        .filter(r -> "HOSPITAL".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "PHARMACY":
+                    fetchedResources = fetchedResources.stream()
+                        .filter(r -> "PHARMACY".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
                 case "FOOD":
                 case "FOOD_BANK":
                     fetchedResources = fetchedResources.stream()
                         .filter(r -> "FOOD_BANK".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "SOCIAL":
+                case "SOCIAL_FACILITY":
+                    fetchedResources = fetchedResources.stream()
+                        .filter(r -> "SOCIAL_FACILITY".equals(r.getType()))
                         .collect(java.util.stream.Collectors.toList());
                     break;
             }

@@ -20,7 +20,10 @@ const MapView = () => {
   const [filters, setFilters] = useState({ 
     LIBRARY: true, 
     CLINIC: true, 
-    FOOD_BANK: true 
+    FOOD_BANK: true,
+    HOSPITAL: true,
+    PHARMACY: true,
+    SOCIAL_FACILITY: true
   });
   const [nearbyResources, setNearbyResources] = useState([]);
   const [searchCenter, setSearchCenter] = useState(null);
@@ -208,17 +211,20 @@ const MapView = () => {
   const getMarkerColor = (resource) => {
     // Priority: nearby analysis > visible area > resource type
     if (nearbyResources.some(nr => nr.id === resource.id)) {
-      return '#dc3545'; // Red for nearby analysis resources
+      return '#e74c3c'; // Bright red for nearby analysis resources
     }
     if (visibleResources.some(vr => vr.id === resource.id)) {
-      return '#17a2b8'; // Cyan for visible area resources
+      return '#3498db'; // Bright blue for visible area resources
     }
-    // Distinct colors for different resource types
+    // Distinct, vibrant colors for different resource types
     switch (resource.type) {
-      case 'LIBRARY': return '#28a745'; // Green for libraries
-      case 'CLINIC': return '#007bff'; // Blue for clinics
-      case 'FOOD_BANK': return '#ffc107'; // Yellow for food banks
-      default: return '#6c757d'; // Gray for unknown types
+      case 'LIBRARY': return '#27ae60'; // Vibrant green for libraries
+      case 'CLINIC': return '#e67e22'; // Orange for clinics
+      case 'HOSPITAL': return '#c0392b'; // Dark red for hospitals
+      case 'PHARMACY': return '#8e44ad'; // Purple for pharmacies
+      case 'FOOD_BANK': return '#f39c12'; // Golden yellow for food banks
+      case 'SOCIAL_FACILITY': return '#16a085'; // Teal for social facilities
+      default: return '#95a5a6'; // Light gray for unknown types
     }
   };
 
@@ -249,7 +255,10 @@ const MapView = () => {
     switch (type) {
       case 'LIBRARY': return '📚';
       case 'CLINIC': return '🏥';
+      case 'HOSPITAL': return '🏥';
+      case 'PHARMACY': return '💊';
       case 'FOOD_BANK': return '🍽️';
+      case 'SOCIAL_FACILITY': return '🏢';
       default: return '📍';
     }
   };

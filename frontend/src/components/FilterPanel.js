@@ -32,12 +32,45 @@ const FilterPanel = ({ filters, onFilterChange, nearbyCount, onClearAnalysis, is
           <label className="filter-option">
             <input
               type="checkbox"
+              checked={filters.HOSPITAL}
+              onChange={() => onFilterChange('HOSPITAL')}
+            />
+            <span className="filter-label">
+              <span className="filter-icon">🏥</span>
+              Hospitals
+            </span>
+          </label>
+          <label className="filter-option">
+            <input
+              type="checkbox"
+              checked={filters.PHARMACY}
+              onChange={() => onFilterChange('PHARMACY')}
+            />
+            <span className="filter-label">
+              <span className="filter-icon">💊</span>
+              Pharmacies
+            </span>
+          </label>
+          <label className="filter-option">
+            <input
+              type="checkbox"
               checked={filters.FOOD_BANK}
               onChange={() => onFilterChange('FOOD_BANK')}
             />
             <span className="filter-label">
               <span className="filter-icon">🍽️</span>
               Food Banks
+            </span>
+          </label>
+          <label className="filter-option">
+            <input
+              type="checkbox"
+              checked={filters.SOCIAL_FACILITY}
+              onChange={() => onFilterChange('SOCIAL_FACILITY')}
+            />
+            <span className="filter-label">
+              <span className="filter-icon">🏢</span>
+              Social Services
             </span>
           </label>
         </div>

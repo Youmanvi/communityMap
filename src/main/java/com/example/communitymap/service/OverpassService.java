@@ -168,7 +168,7 @@ public class OverpassService {
     
     private String extractName(Map<String, Object> tags) {
         // Try different name fields in order of preference
-        String[] nameFields = {"name", "brand", "operator", "ref", "official_name", "alt_name", "short_name"};
+        String[] nameFields = {"name", "brand", "operator", "ref", "official_name", "alt_name", "short_name", "local_name", "int_name"};
         for (String field : nameFields) {
             Object value = tags.get(field);
             if (value instanceof String && !((String) value).trim().isEmpty()) {
@@ -211,13 +211,16 @@ public class OverpassService {
                 case "library":
                     return "LIBRARY";
                 case "hospital":
+                    return "HOSPITAL";
                 case "clinic":
                 case "doctors":
-                case "pharmacy":
                     return "CLINIC";
+                case "pharmacy":
+                    return "PHARMACY";
                 case "food_bank":
-                case "social_facility":
                     return "FOOD_BANK";
+                case "social_facility":
+                    return "SOCIAL_FACILITY";
                 default:
                     return defaultType;
             }
