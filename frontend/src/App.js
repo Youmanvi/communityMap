@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import 'leaflet/dist/leaflet.css';
-import MapView from './components/MapView';
 import './App.css';
+
+// Lazy load the MapView component for better performance
+const MapView = lazy(() => import('./components/MapView'));
 
 function App() {
   return (
     <div className="App">
-      <MapView />
+      <Suspense fallback={<div className="loading">Loading map...</div>}>
+        <MapView />
+      </Suspense>
     </div>
   );
 }

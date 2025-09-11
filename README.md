@@ -36,36 +36,6 @@ CommunityMap is a full-stack web application that displays community resources l
 - **Docker Compose** - Multi-container orchestration
 - **Multi-stage Dockerfile** - Optimized build process
 
-## Project Structure
-
-```
-community_map/
-├── src/main/java/com/example/communitymap/
-│   ├── CommunityMapApplication.java          # Main Spring Boot application
-│   ├── controller/
-│   │   └── ResourceController.java           # REST API endpoints
-│   ├── service/
-│   │   ├── OverpassService.java              # OpenStreetMap data fetching
-│   │   └── ResourceService.java              # Business logic
-│   ├── model/
-│   │   └── Resource.java                     # Data model
-│   ├── repository/
-│   │   └── ResourceRepository.java           # Database operations
-│   └── exception/                            # Error handling
-├── src/main/resources/
-│   ├── application.properties                # Configuration
-│   └── static/                              # Compiled React frontend
-├── frontend/
-│   ├── src/components/
-│   │   ├── MapView.js                       # Main map component
-│   │   ├── FilterPanel.js                   # Resource filtering
-│   │   └── LoadingSpinner.js                # Loading indicators
-│   └── package.json                         # Frontend dependencies
-├── Dockerfile                               # Multi-stage build
-├── docker-compose.yml                       # Container orchestration
-└── pom.xml                                  # Maven configuration
-```
-
 ## Features
 
 - Interactive map with real-time resource discovery
@@ -85,12 +55,6 @@ community_map/
 ## Installation and Usage
 
 ### Quick Start
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd community_map
-```
 
 2. Start the application:
 ```bash

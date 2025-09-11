@@ -53,13 +53,13 @@ public class ResourceService {
         // Convert miles to meters (1 mile = 1609.34 meters)
         double distanceInMeters = distanceInMiles * 1609.34;
         
-        Point point = new Point(longitude, latitude);
-        Distance distance = new Distance(distanceInMeters);
-        
         log.info("Searching for resources near ({}, {}) within {} miles", latitude, longitude, distanceInMiles);
-        List<Resource> results = resourceRepository.findByLocationNear(point, distance);
-        log.info("Found {} resources nearby", results.size());
         
+        // Use optimized query with pagination for better performance
+        Pageable pageable = PageRequest.of(0, 100); // Limit to 100 results
+        List<Resource> results = resourceRepository.findNearbyResourcesOptimized(latitude, longitude, distanceInMeters, pageable);
+        
+        log.info("Found {} resources nearby", results.size());
         return results;
     }
     

@@ -1,7 +1,7 @@
 import React from 'react';
 import './FilterPanel.css';
 
-const FilterPanel = ({ filters, onFilterChange, nearbyCount, onClearAnalysis, isAnalyzing }) => {
+const FilterPanel = ({ filters, onFilterChange, nearbyCount, onClearAnalysis, isAnalyzing, onRefreshResources, isRefreshing }) => {
   return (
     <div className="filter-panel">
       <div className="panel-section">
@@ -40,6 +40,15 @@ const FilterPanel = ({ filters, onFilterChange, nearbyCount, onClearAnalysis, is
               Food Banks
             </span>
           </label>
+        </div>
+        <div className="refresh-section">
+          <button 
+            onClick={onRefreshResources}
+            disabled={isRefreshing}
+            className="refresh-button"
+          >
+            {isRefreshing ? 'Refreshing...' : 'Refresh All Resources'}
+          </button>
         </div>
       </div>
       

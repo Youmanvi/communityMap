@@ -11,6 +11,15 @@ services:
     environment:
       MONGO_INITDB_DATABASE: community_map
 
+  redis:
+    image: redis:7-alpine
+    container_name: community-map-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
   community-map-app:
     build: .
     ports:
@@ -18,8 +27,12 @@ services:
     container_name: community-map
     depends_on:
       - mongodb
+      - redis
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/community_map
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
 volumes:
   mongo-data:
+  redis-data:
