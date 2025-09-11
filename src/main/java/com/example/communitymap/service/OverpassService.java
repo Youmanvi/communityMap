@@ -28,32 +28,7 @@ public class OverpassService {
         this.restTemplate = new RestTemplate();
     }
     
-    /**
-     * Fetch libraries from OpenStreetMap using Overpass API
-     */
-    @Cacheable(value = "libraries", key = "#lat + '_' + #lon + '_' + #radiusKm")
-    public List<Resource> fetchLibraries(double lat, double lon, double radiusKm) {
-        String query = buildLibraryQuery(lat, lon, radiusKm);
-        return executeOverpassQuery(query, "LIBRARY");
-    }
-    
-    /**
-     * Fetch healthcare facilities from OpenStreetMap using Overpass API
-     */
-    @Cacheable(value = "healthcare", key = "#lat + '_' + #lon + '_' + #radiusKm")
-    public List<Resource> fetchHealthcare(double lat, double lon, double radiusKm) {
-        String query = buildHealthcareQuery(lat, lon, radiusKm);
-        return executeOverpassQuery(query, "CLINIC");
-    }
-    
-    /**
-     * Fetch food assistance resources from OpenStreetMap using Overpass API
-     */
-    @Cacheable(value = "foodAssistance", key = "#lat + '_' + #lon + '_' + #radiusKm")
-    public List<Resource> fetchFoodAssistance(double lat, double lon, double radiusKm) {
-        String query = buildFoodAssistanceQuery(lat, lon, radiusKm);
-        return executeOverpassQuery(query, "FOOD_BANK");
-    }
+    // Individual methods removed - using combined query for better performance
     
     /**
      * Fetch all community resources from OpenStreetMap using Overpass API
@@ -67,53 +42,7 @@ public class OverpassService {
         return executeOverpassQuery(query, "ALL");
     }
     
-    private String buildLibraryQuery(double lat, double lon, double radiusKm) {
-        return String.format("""
-            [out:json][timeout:25];
-            (
-              node["amenity"="library"](around:%d,%f,%f);
-              way["amenity"="library"](around:%d,%f,%f);
-              relation["amenity"="library"](around:%d,%f,%f);
-            );
-            out center;
-            """, 
-            (int)(radiusKm * 1000), lat, lon,
-            (int)(radiusKm * 1000), lat, lon,
-            (int)(radiusKm * 1000), lat, lon
-        );
-    }
-    
-    private String buildHealthcareQuery(double lat, double lon, double radiusKm) {
-        return String.format("""
-            [out:json][timeout:25];
-            (
-              node["amenity"~"^(hospital|clinic|doctors|pharmacy)$"](around:%d,%f,%f);
-              way["amenity"~"^(hospital|clinic|doctors|pharmacy)$"](around:%d,%f,%f);
-              relation["amenity"~"^(hospital|clinic|doctors|pharmacy)$"](around:%d,%f,%f);
-            );
-            out center;
-            """, 
-            (int)(radiusKm * 1000), lat, lon,
-            (int)(radiusKm * 1000), lat, lon,
-            (int)(radiusKm * 1000), lat, lon
-        );
-    }
-    
-    private String buildFoodAssistanceQuery(double lat, double lon, double radiusKm) {
-        return String.format("""
-            [out:json][timeout:25];
-            (
-              node["amenity"~"^(food_bank|social_facility)$"](around:%d,%f,%f);
-              way["amenity"~"^(food_bank|social_facility)$"](around:%d,%f,%f);
-              relation["amenity"~"^(food_bank|social_facility)$"](around:%d,%f,%f);
-            );
-            out center;
-            """, 
-            (int)(radiusKm * 1000), lat, lon,
-            (int)(radiusKm * 1000), lat, lon,
-            (int)(radiusKm * 1000), lat, lon
-        );
-    }
+    // Individual query methods removed - using combined query for better performance
     
     private String buildCombinedQuery(double lat, double lon, double radiusKm) {
         return String.format("""

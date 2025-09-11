@@ -16,7 +16,6 @@ L.Icon.Default.mergeOptions({
 });
 
 const MapView = () => {
-  const [resources, setResources] = useState([]);
   const [filteredResources, setFilteredResources] = useState([]);
   const [filters, setFilters] = useState({ 
     LIBRARY: true, 
@@ -26,13 +25,9 @@ const MapView = () => {
   const [nearbyResources, setNearbyResources] = useState([]);
   const [searchCenter, setSearchCenter] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [mapError, setMapError] = useState(null);
   const [visibleResources, setVisibleResources] = useState([]);
-  const [mapBounds, setMapBounds] = useState(null);
   const [isLoadingVisible, setIsLoadingVisible] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const mapRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
 
@@ -97,12 +92,7 @@ const MapView = () => {
   }, []);
 
 
-  // Initialize with empty state - no automatic loading
-  useEffect(() => {
-    setLoading(false);
-    setResources([]);
-    setFilteredResources([]);
-  }, []);
+  // Manual mode - no initialization needed
 
   // Cleanup debounce timeout on unmount
   useEffect(() => {
@@ -113,15 +103,13 @@ const MapView = () => {
     };
   }, []);
 
-  // Filter resources based on active filters
+  // Filter resources based on active filters - only visible resources
   useEffect(() => {
-    // Use visible resources if available, otherwise use all resources
-    const sourceResources = visibleResources.length > 0 ? visibleResources : resources;
-    const filtered = sourceResources.filter(resource => 
+    const filtered = visibleResources.filter(resource => 
       filters[resource.type]
     );
     setFilteredResources(filtered);
-  }, [resources, visibleResources, filters]);
+  }, [visibleResources, filters]);
 
   const handleFilterChange = (type) => {
     setFilters(prev => ({
@@ -194,8 +182,6 @@ const MapView = () => {
         }
         
         debounceTimeoutRef.current = setTimeout(() => {
-          const bounds = e.target.getBounds();
-          setMapBounds(bounds);
           // Clear visible resources when map moves - user must manually refresh
           setVisibleResources([]);
           setMapError(null); // Clear any previous errors
@@ -208,8 +194,6 @@ const MapView = () => {
         }
         
         debounceTimeoutRef.current = setTimeout(() => {
-          const bounds = e.target.getBounds();
-          setMapBounds(bounds);
           // Clear visible resources when map zooms - user must manually refresh
           setVisibleResources([]);
           setMapError(null); // Clear any previous errors
@@ -217,13 +201,6 @@ const MapView = () => {
       }
     });
     return null;
-  };
-
-  const retryFetchResources = () => {
-    setError(null);
-    setLoading(true);
-    // Trigger re-fetch by updating a dependency
-    setResources([]);
   };
 
   // Manual mode - no automatic refresh functionality
@@ -277,21 +254,7 @@ const MapView = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="map-container">
-        <LoadingSpinner size="large" message="Loading community resources..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="map-container">
-        <ErrorMessage error={error} onRetry={retryFetchResources} />
-      </div>
-    );
-  }
+  // Manual mode - no loading states needed
 
   return (
     <div className="map-container">

@@ -85,18 +85,31 @@ public class ResourceController {
             @RequestParam(required = false) String type) {
         log.info("GET /api/resources/fetch/overpass - lat: {}, lon: {}, radius: {}km, type: {}", lat, lon, radiusKm, type);
         
-        List<Resource> resources = new java.util.ArrayList<>();
+        // Use the optimized combined method for better performance
+        List<Resource> resources = overpassService.fetchAllResources(lat, lon, radiusKm);
         
-        if (type == null || type.equalsIgnoreCase("all") || type.equalsIgnoreCase("library")) {
-            resources.addAll(overpassService.fetchLibraries(lat, lon, radiusKm));
-        }
-        
-        if (type == null || type.equalsIgnoreCase("all") || type.equalsIgnoreCase("healthcare")) {
-            resources.addAll(overpassService.fetchHealthcare(lat, lon, radiusKm));
-        }
-        
-        if (type == null || type.equalsIgnoreCase("all") || type.equalsIgnoreCase("food")) {
-            resources.addAll(overpassService.fetchFoodAssistance(lat, lon, radiusKm));
+        // Filter by type if specified
+        if (type != null && !type.equalsIgnoreCase("all")) {
+            String filterType = type.toUpperCase();
+            switch (filterType) {
+                case "LIBRARY":
+                    resources = resources.stream()
+                        .filter(r -> "LIBRARY".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "HEALTHCARE":
+                case "CLINIC":
+                    resources = resources.stream()
+                        .filter(r -> "CLINIC".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "FOOD":
+                case "FOOD_BANK":
+                    resources = resources.stream()
+                        .filter(r -> "FOOD_BANK".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+            }
         }
         
         return ResponseEntity.ok(resources);
@@ -110,18 +123,31 @@ public class ResourceController {
             @RequestParam(required = false) String type) {
         log.info("POST /api/resources/fetch-and-save - lat: {}, lon: {}, radius: {}km, type: {}", lat, lon, radiusKm, type);
         
-        List<Resource> fetchedResources = new java.util.ArrayList<>();
+        // Use the optimized combined method for better performance
+        List<Resource> fetchedResources = overpassService.fetchAllResources(lat, lon, radiusKm);
         
-        if (type == null || type.equalsIgnoreCase("all") || type.equalsIgnoreCase("library")) {
-            fetchedResources.addAll(overpassService.fetchLibraries(lat, lon, radiusKm));
-        }
-        
-        if (type == null || type.equalsIgnoreCase("all") || type.equalsIgnoreCase("healthcare")) {
-            fetchedResources.addAll(overpassService.fetchHealthcare(lat, lon, radiusKm));
-        }
-        
-        if (type == null || type.equalsIgnoreCase("all") || type.equalsIgnoreCase("food")) {
-            fetchedResources.addAll(overpassService.fetchFoodAssistance(lat, lon, radiusKm));
+        // Filter by type if specified
+        if (type != null && !type.equalsIgnoreCase("all")) {
+            String filterType = type.toUpperCase();
+            switch (filterType) {
+                case "LIBRARY":
+                    fetchedResources = fetchedResources.stream()
+                        .filter(r -> "LIBRARY".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "HEALTHCARE":
+                case "CLINIC":
+                    fetchedResources = fetchedResources.stream()
+                        .filter(r -> "CLINIC".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+                case "FOOD":
+                case "FOOD_BANK":
+                    fetchedResources = fetchedResources.stream()
+                        .filter(r -> "FOOD_BANK".equals(r.getType()))
+                        .collect(java.util.stream.Collectors.toList());
+                    break;
+            }
         }
         
         // Save fetched resources to database
