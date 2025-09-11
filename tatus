@@ -1,7 +1,0 @@
-[33m512a56c[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m optimizations to performance, improvements to viewing sites and distinguished them with colors.
-[33ma38dd05[m optimizations for live updates and performance. Integrated color coding for icons as well as populating their names which was bugged.
-[33m2d500d9[m feat: add improved manual update mechanism UI
-[33m483e32b[m fix: resolve filter functionality issues
-[33m790926f[m feat: improve resource name population
-[33mf9ac00a[m[33m ([m[1;31morigin/main[m[33m)[m Add project documentation and gitignore
-[33m7128acf[m Deploy with Docker multi-stage build and EC2 configuration
