@@ -3,13 +3,13 @@ package com.example.communitymap.service;
 import com.example.communitymap.model.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +31,7 @@ public class OverpassService {
     /**
      * Fetch libraries from OpenStreetMap using Overpass API
      */
+    @Cacheable(value = "libraries", key = "#lat + '_' + #lon + '_' + #radiusKm")
     public List<Resource> fetchLibraries(double lat, double lon, double radiusKm) {
         String query = buildLibraryQuery(lat, lon, radiusKm);
         return executeOverpassQuery(query, "LIBRARY");
@@ -39,6 +40,7 @@ public class OverpassService {
     /**
      * Fetch healthcare facilities from OpenStreetMap using Overpass API
      */
+    @Cacheable(value = "healthcare", key = "#lat + '_' + #lon + '_' + #radiusKm")
     public List<Resource> fetchHealthcare(double lat, double lon, double radiusKm) {
         String query = buildHealthcareQuery(lat, lon, radiusKm);
         return executeOverpassQuery(query, "CLINIC");
@@ -47,6 +49,7 @@ public class OverpassService {
     /**
      * Fetch food assistance resources from OpenStreetMap using Overpass API
      */
+    @Cacheable(value = "foodAssistance", key = "#lat + '_' + #lon + '_' + #radiusKm")
     public List<Resource> fetchFoodAssistance(double lat, double lon, double radiusKm) {
         String query = buildFoodAssistanceQuery(lat, lon, radiusKm);
         return executeOverpassQuery(query, "FOOD_BANK");
@@ -54,13 +57,12 @@ public class OverpassService {
     
     /**
      * Fetch all community resources from OpenStreetMap using Overpass API
+     * Optimized single query approach for better performance
      */
+    @Cacheable(value = "allResources", key = "#lat + '_' + #lon + '_' + #radiusKm")
     public List<Resource> fetchAllResources(double lat, double lon, double radiusKm) {
-        List<Resource> resources = new ArrayList<>();
-        resources.addAll(fetchLibraries(lat, lon, radiusKm));
-        resources.addAll(fetchHealthcare(lat, lon, radiusKm));
-        resources.addAll(fetchFoodAssistance(lat, lon, radiusKm));
-        return resources;
+        String query = buildCombinedQuery(lat, lon, radiusKm);
+        return executeOverpassQuery(query, "ALL");
     }
     
     private String buildLibraryQuery(double lat, double lon, double radiusKm) {
@@ -102,6 +104,22 @@ public class OverpassService {
               node["amenity"~"^(food_bank|social_facility)$"](around:%d,%f,%f);
               way["amenity"~"^(food_bank|social_facility)$"](around:%d,%f,%f);
               relation["amenity"~"^(food_bank|social_facility)$"](around:%d,%f,%f);
+            );
+            out center;
+            """, 
+            (int)(radiusKm * 1000), lat, lon,
+            (int)(radiusKm * 1000), lat, lon,
+            (int)(radiusKm * 1000), lat, lon
+        );
+    }
+    
+    private String buildCombinedQuery(double lat, double lon, double radiusKm) {
+        return String.format("""
+            [out:json][timeout:30];
+            (
+              node["amenity"~"^(library|hospital|clinic|doctors|pharmacy|food_bank|social_facility)$"](around:%d,%f,%f);
+              way["amenity"~"^(library|hospital|clinic|doctors|pharmacy|food_bank|social_facility)$"](around:%d,%f,%f);
+              relation["amenity"~"^(library|hospital|clinic|doctors|pharmacy|food_bank|social_facility)$"](around:%d,%f,%f);
             );
             out center;
             """, 
@@ -219,14 +237,39 @@ public class OverpassService {
     
     private String extractName(Map<String, Object> tags) {
         // Try different name fields in order of preference
-        String[] nameFields = {"name", "brand", "operator", "ref"};
+        String[] nameFields = {"name", "brand", "operator", "ref", "official_name", "alt_name", "short_name"};
         for (String field : nameFields) {
             Object value = tags.get(field);
             if (value instanceof String && !((String) value).trim().isEmpty()) {
-                return (String) value;
+                return ((String) value).trim();
             }
         }
-        return "Unnamed Resource";
+        
+        // If no name found, try to create a descriptive name based on amenity
+        Object amenity = tags.get("amenity");
+        if (amenity instanceof String) {
+            String amenityStr = (String) amenity;
+            switch (amenityStr) {
+                case "library":
+                    return "Public Library";
+                case "hospital":
+                    return "Hospital";
+                case "clinic":
+                    return "Medical Clinic";
+                case "doctors":
+                    return "Doctor's Office";
+                case "pharmacy":
+                    return "Pharmacy";
+                case "food_bank":
+                    return "Food Bank";
+                case "social_facility":
+                    return "Social Services";
+                default:
+                    return "Community Resource";
+            }
+        }
+        
+        return "Community Resource";
     }
     
     private String determineResourceType(Map<String, Object> tags, String defaultType) {
