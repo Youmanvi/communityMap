@@ -13,6 +13,7 @@ CommunityMap is a full-stack web application that displays community resources l
 - v1.3.0 - Optimized API calls and added caching layer
 - v1.4.0 - Production deployment ready with Docker and CI/CD
 
+
 ### Backend
 - **Java 17** - Programming language
 - **Spring Boot 3.2.0** - Application framework
