@@ -30,7 +30,7 @@ COPY --from=frontend_build /app/frontend/build ./src/main/resources/static
 RUN mvn clean package -Dmaven.test.skip=true -Dcheckstyle.skip=true -Dmaven.javadoc.skip=true
 
 ### STAGE 3: Final Production Image ###
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 # Create non-root user for security

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
@@ -16,6 +16,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const MapView = () => {
+  const [allResources, setAllResources] = useState([]);
   const [filteredResources, setFilteredResources] = useState([]);
   const [filters, setFilters] = useState({ 
     LIBRARY: true, 
@@ -25,16 +26,26 @@ const MapView = () => {
     PHARMACY: true,
     SOCIAL_FACILITY: true
   });
-  const [nearbyResources, setNearbyResources] = useState([]);
-  const [searchCenter, setSearchCenter] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [mapError, setMapError] = useState(null);
-  const [visibleResources, setVisibleResources] = useState([]);
   const [isLoadingVisible, setIsLoadingVisible] = useState(false);
+  const [mapError, setMapError] = useState(null);
+  const [isFilterPanelCollapsed, setIsFilterPanelCollapsed] = useState(false);
   const mapRef = useRef(null);
-  const debounceTimeoutRef = useRef(null);
+  
+  const MAX_ENTITIES = 50;
 
-  // Function to fetch resources for visible area
+  // Apply filters whenever filters or allResources change
+  useEffect(() => {
+    console.log('Applying filters - All resources:', allResources.length, 'Filters:', filters);
+    const filtered = allResources.filter(resource => {
+      const isIncluded = filters[resource.type] === true;
+      console.log(`Resource ${resource.name} (${resource.type}): ${isIncluded ? 'SHOWN' : 'HIDDEN'}`);
+      return isIncluded;
+    });
+    console.log('Filtered resources result:', filtered.length);
+    setFilteredResources(filtered);
+  }, [allResources, filters]);
+
+  // Function to fetch resources for visible area with entity limit checking
   const fetchResourcesForBounds = useCallback(async (bounds) => {
     if (!bounds) return;
     
@@ -42,49 +53,95 @@ const MapView = () => {
       setIsLoadingVisible(true);
       setMapError(null);
       
-      // Calculate center and radius from bounds
+      // Calculate center and much larger radius to get more entities
       const center = bounds.getCenter();
-      const radius = Math.min(
-        Math.max(
-          center.distanceTo(bounds.getNorthEast()),
-          center.distanceTo(bounds.getSouthWest())
-        ) / 1000, // Convert to kilometers
-        5.0 // Max 5km radius for performance
-      );
+      const radius = Math.max(
+        center.distanceTo(bounds.getNorthEast()),
+        center.distanceTo(bounds.getSouthWest())
+      ) / 1000; // Convert to kilometers
       
-      // Always try to fetch fresh data from Overpass API first
+      // Use a larger search radius to capture more entities
+      const searchRadius = Math.max(radius * 2, 5.0); // At least 5km, or 2x the bounds radius
+      
+      let fetchedResources = [];
+      
+      // Try Overpass API first with expanded search parameters
       try {
-        console.log('Fetching from Overpass API:', { lat: center.lat, lon: center.lng, radiusKm: Math.max(radius, 1.6) });
-        const overpassResponse = await axios.get('/api/resources/fetch/overpass', {
-          params: {
-            lat: center.lat,
-            lon: center.lng,
-            radiusKm: Math.max(radius, 1.6), // At least 1 mile
-            type: 'all'
-          }
+        console.log('Fetching from Overpass API:', { 
+          lat: center.lat, 
+          lon: center.lng, 
+          radiusKm: searchRadius 
         });
         
-        console.log('Overpass API response:', overpassResponse.data.length, 'resources');
+        // Try multiple API calls for different resource types to get more comprehensive data
+        const resourceTypes = ['amenity=library', 'amenity=clinic', 'amenity=hospital', 'amenity=pharmacy', 'amenity=food_bank', 'amenity=social_facility'];
+        const overpassPromises = resourceTypes.map(type => 
+          axios.get('/api/resources/fetch/overpass', {
+            params: {
+              lat: center.lat,
+              lon: center.lng,
+              radiusKm: searchRadius,
+              type: type,
+              timeout: 10000 // 10 second timeout
+            }
+          }).catch(err => {
+            console.warn(`Failed to fetch ${type}:`, err.message);
+            return { data: [] };
+          })
+        );
         
-        // If Overpass returns data, use it
-        if (overpassResponse.data && overpassResponse.data.length > 0) {
-          setVisibleResources(overpassResponse.data);
-          return;
+        const overpassResponses = await Promise.all(overpassPromises);
+        const allOverpassData = overpassResponses.flatMap(response => response.data || []);
+        
+        console.log('Overpass API combined response:', allOverpassData.length, 'resources');
+        
+        if (allOverpassData.length > 0) {
+          fetchedResources = allOverpassData;
         }
       } catch (overpassError) {
         console.warn('Overpass API failed, falling back to database:', overpassError.message);
       }
       
-      // Fallback to database if Overpass fails or returns no data
-      const nearbyResponse = await axios.get('/api/resources/search/nearby', {
-        params: {
-          lat: center.lat,
-          lon: center.lng,
-          dist: Math.max(radius, 1) // At least 1 mile radius
+      // If no Overpass data, fallback to database with larger radius
+      if (fetchedResources.length === 0) {
+        try {
+          const nearbyResponse = await axios.get('/api/resources/search/nearby', {
+            params: {
+              lat: center.lat,
+              lon: center.lng,
+              dist: searchRadius * 0.621371, // Convert km to miles
+              limit: MAX_ENTITIES + 10 // Fetch a bit more than limit to check for overflow
+            }
+          });
+          
+          fetchedResources = nearbyResponse.data || [];
+          console.log('Database response:', fetchedResources.length, 'resources');
+        } catch (dbError) {
+          console.error('Database fallback failed:', dbError.message);
+          throw dbError;
         }
-      });
+      }
       
-      setVisibleResources(nearbyResponse.data);
+      // Check entity count limit
+      if (fetchedResources.length > MAX_ENTITIES) {
+        const errorMessage = `Too many entities found (${fetchedResources.length}). This area contains more than ${MAX_ENTITIES} resources. Please zoom in to a smaller area to reduce the number of entities.`;
+        setMapError(errorMessage);
+        console.warn('Entity limit exceeded:', fetchedResources.length, 'entities found');
+        return;
+      }
+      
+      // Remove duplicates based on coordinates and name
+      const uniqueResources = fetchedResources.filter((resource, index, array) => 
+        array.findIndex(r => 
+          r.name === resource.name && 
+          Math.abs(r.location.x - resource.location.x) < 0.0001 && 
+          Math.abs(r.location.y - resource.location.y) < 0.0001
+        ) === index
+      );
+      
+      console.log('Setting all resources (after deduplication):', uniqueResources.length);
+      setAllResources(uniqueResources);
+      
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch resources for visible area';
       setMapError(errorMessage);
@@ -94,77 +151,17 @@ const MapView = () => {
     }
   }, []);
 
-
-  // Manual mode - no initialization needed
-
-  // Cleanup debounce timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Filter resources based on active filters - only visible resources
-  useEffect(() => {
-    const filtered = visibleResources.filter(resource => 
-      filters[resource.type]
-    );
-    setFilteredResources(filtered);
-  }, [visibleResources, filters]);
-
   const handleFilterChange = (type) => {
+    console.log(`Filter change: ${type} toggled`);
     setFilters(prev => ({
       ...prev,
       [type]: !prev[type]
     }));
   };
 
-  const handleMapClick = async (e) => {
-    if (isAnalyzing) return;
-    
-    setIsAnalyzing(true);
-    setMapError(null);
-    const { lat, lng } = e.latlng;
-    setSearchCenter([lat, lng]);
-
-    try {
-      // First try to get nearby resources from database
-      const nearbyResponse = await axios.get('/api/resources/search/nearby', {
-        params: {
-          lat: lat,
-          lon: lng,
-          dist: 1 // 1 mile radius
-        }
-      });
-      
-      // If no resources found in database, fetch from Overpass API
-      if (nearbyResponse.data.length === 0) {
-        const overpassResponse = await axios.get('/api/resources/fetch/overpass', {
-          params: {
-            lat: lat,
-            lon: lng,
-            radiusKm: 1.6, // ~1 mile
-            type: 'all'
-          }
-        });
-        setNearbyResources(overpassResponse.data);
-      } else {
-        setNearbyResources(nearbyResponse.data);
-      }
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to search nearby resources';
-      setMapError(errorMessage);
-      console.error('Error searching nearby resources:', err);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const clearAnalysis = () => {
-    setNearbyResources([]);
-    setSearchCenter(null);
+    setAllResources([]);
+    setFilteredResources([]);
     setMapError(null);
   };
 
@@ -175,70 +172,52 @@ const MapView = () => {
     }
   };
 
-  // Component to handle map events
+  const toggleFilterPanel = () => {
+    setIsFilterPanelCollapsed(!isFilterPanelCollapsed);
+  };
+
+  // Component to handle map events - no automatic updates
   const MapEvents = () => {
-    useMapEvents({
-      moveend: (e) => {
-        // Debounce map events to prevent excessive updates
-        if (debounceTimeoutRef.current) {
-          clearTimeout(debounceTimeoutRef.current);
-        }
-        
-        debounceTimeoutRef.current = setTimeout(() => {
-          // Clear visible resources when map moves - user must manually refresh
-          setVisibleResources([]);
-          setMapError(null); // Clear any previous errors
-        }, 300); // 300ms debounce
-      },
-      zoomend: (e) => {
-        // Debounce map events to prevent excessive updates
-        if (debounceTimeoutRef.current) {
-          clearTimeout(debounceTimeoutRef.current);
-        }
-        
-        debounceTimeoutRef.current = setTimeout(() => {
-          // Clear visible resources when map zooms - user must manually refresh
-          setVisibleResources([]);
-          setMapError(null); // Clear any previous errors
-        }, 300); // 300ms debounce
-      }
-    });
     return null;
   };
 
-  // Manual mode - no automatic refresh functionality
+  // Consistent color mapping for resource types
+  const getMarkerColor = (resourceType) => {
+    const colorMap = {
+      'LIBRARY': '#27ae60',        // Green for libraries
+      'CLINIC': '#e67e22',         // Orange for clinics  
+      'HOSPITAL': '#c0392b',       // Dark red for hospitals
+      'PHARMACY': '#8e44ad',       // Purple for pharmacies
+      'FOOD_BANK': '#f39c12',      // Golden yellow for food banks
+      'SOCIAL_FACILITY': '#16a085' // Teal for social facilities
+    };
+    return colorMap[resourceType] || '#95a5a6'; // Default gray for unknown types
+  };
 
-  const getMarkerColor = (resource) => {
-    // Priority: nearby analysis > visible area > resource type
-    if (nearbyResources.some(nr => nr.id === resource.id)) {
-      return '#e74c3c'; // Bright red for nearby analysis resources
-    }
-    if (visibleResources.some(vr => vr.id === resource.id)) {
-      return '#3498db'; // Bright blue for visible area resources
-    }
-    // Distinct, vibrant colors for different resource types
-    switch (resource.type) {
-      case 'LIBRARY': return '#27ae60'; // Vibrant green for libraries
-      case 'CLINIC': return '#e67e22'; // Orange for clinics
-      case 'HOSPITAL': return '#c0392b'; // Dark red for hospitals
-      case 'PHARMACY': return '#8e44ad'; // Purple for pharmacies
-      case 'FOOD_BANK': return '#f39c12'; // Golden yellow for food banks
-      case 'SOCIAL_FACILITY': return '#16a085'; // Teal for social facilities
-      default: return '#95a5a6'; // Light gray for unknown types
-    }
+  // Consistent icon mapping for resource types
+  const getResourceIcon = (resourceType) => {
+    const iconMap = {
+      'LIBRARY': '📚',
+      'CLINIC': '🏥', 
+      'HOSPITAL': '🏥',
+      'PHARMACY': '💊',
+      'FOOD_BANK': '🍽️',
+      'SOCIAL_FACILITY': '🏢'
+    };
+    return iconMap[resourceType] || '📍';
   };
 
   // Memoize marker icons to prevent unnecessary re-renders
   const markerIconCache = useRef(new Map());
   
   const getMarkerIcon = (resource) => {
-    const cacheKey = `${resource.type}-${getMarkerColor(resource)}`;
+    const cacheKey = resource.type;
     
     if (markerIconCache.current.has(cacheKey)) {
       return markerIconCache.current.get(cacheKey);
     }
     
-    const color = getMarkerColor(resource);
+    const color = getMarkerColor(resource.type);
     const icon = getResourceIcon(resource.type);
     const markerIcon = L.divIcon({
       className: 'custom-marker',
@@ -251,42 +230,54 @@ const MapView = () => {
     return markerIcon;
   };
 
-  const getResourceIcon = (type) => {
-    switch (type) {
-      case 'LIBRARY': return '📚';
-      case 'CLINIC': return '🏥';
-      case 'HOSPITAL': return '🏥';
-      case 'PHARMACY': return '💊';
-      case 'FOOD_BANK': return '🍽️';
-      case 'SOCIAL_FACILITY': return '🏢';
-      default: return '📍';
-    }
+  // Format resource type for display
+  const formatResourceType = (type) => {
+    return type.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
   };
-
-  // Manual mode - no loading states needed
 
   return (
     <div className="map-container">
-      {/* Filter Panel */}
-      <FilterPanel
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        nearbyCount={nearbyResources.length}
-        onClearAnalysis={clearAnalysis}
-        isAnalyzing={isAnalyzing}
-      />
+      {/* Collapsible Filter Panel */}
+      <div className={`filter-panel-container ${isFilterPanelCollapsed ? 'collapsed' : 'expanded'}`}>
+        <button 
+          className="filter-toggle-button"
+          onClick={toggleFilterPanel}
+          title={isFilterPanelCollapsed ? "Show Filters" : "Hide Filters"}
+        >
+          <span className={`filter-toggle-arrow ${isFilterPanelCollapsed ? 'collapsed' : 'expanded'}`}>
+            {isFilterPanelCollapsed ? '▶' : '◀'}
+          </span>
+          {!isFilterPanelCollapsed && <span className="filter-toggle-text">Filters</span>}
+        </button>
+        
+        <div className={`filter-panel-content ${isFilterPanelCollapsed ? 'hidden' : 'visible'}`}>
+          <FilterPanel
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            nearbyCount={allResources.length}
+            onClearAnalysis={clearAnalysis}
+            isAnalyzing={isLoadingVisible}
+          />
+        </div>
+      </div>
 
       {/* Map Error Message */}
       {mapError && (
         <div className="map-error-overlay">
           <ErrorMessage error={mapError} showRetry={false} />
+          <button 
+            className="dismiss-error-button"
+            onClick={() => setMapError(null)}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Manual Update Button */}
+      {/* Analyze Visible Area Button */}
       <div className="analyze-button-container">
         <button 
-          className={`analyze-button ${visibleResources.length === 0 ? 'analyze-button-pulse' : ''}`}
+          className={`analyze-button ${allResources.length === 0 ? 'analyze-button-pulse' : ''}`}
           onClick={analyzeVisibleArea}
           disabled={isLoadingVisible}
         >
@@ -298,20 +289,23 @@ const MapView = () => {
           ) : (
             <>
               <span className="analyze-icon">🔍</span>
-              {visibleResources.length === 0 ? 'Load Visible Resources' : 'Refresh Resources'}
+              {allResources.length === 0 ? 'Analyze Visible Area' : 'Refresh Resources'}
             </>
           )}
         </button>
-        {visibleResources.length === 0 && (
+        {allResources.length === 0 && (
           <div className="analyze-hint">
             Click to load community resources for the current map view
           </div>
         )}
-        {visibleResources.length > 0 && (
+        {allResources.length > 0 && (
           <div className="analyze-success">
-            ✓ Loaded {visibleResources.length} resources
+            ✓ Loaded {allResources.length} resources ({filteredResources.length} visible)
           </div>
         )}
+        <div className="entity-limit-info">
+          Max {MAX_ENTITIES} entities per area. Zoom in if you get an error.
+        </div>
       </div>
 
       {/* Map */}
@@ -320,7 +314,6 @@ const MapView = () => {
         center={[32.7767, -96.7970]} // Dallas coordinates
         zoom={12}
         style={{ height: "100vh", width: "100%" }}
-        onClick={handleMapClick}
       >
         <MapEvents />
         <TileLayer
@@ -328,17 +321,26 @@ const MapView = () => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
-        {/* Render filtered resources */}
+        {/* Render filtered resources with consistent color coding */}
         {filteredResources.map(resource => (
           <Marker 
-            key={visibleResources.length > 0 ? `visible-${resource.id}` : resource.id} 
+            key={`resource-${resource.id}`} 
             position={[resource.location.y, resource.location.x]}
             icon={getMarkerIcon(resource)}
           >
             <Popup>
               <div className="popup-content">
                 <h4>{resource.name}</h4>
-                <p><strong>Type:</strong> {resource.type.replace('_', ' ')}</p>
+                <p>
+                  <strong>Type:</strong> 
+                  <span style={{ 
+                    color: getMarkerColor(resource.type), 
+                    fontWeight: 'bold',
+                    marginLeft: '5px'
+                  }}>
+                    {formatResourceType(resource.type)}
+                  </span>
+                </p>
                 <p><strong>Address:</strong> {resource.address}</p>
                 <div className="popup-actions">
                   <button 
@@ -352,22 +354,118 @@ const MapView = () => {
             </Popup>
           </Marker>
         ))}
-
-        {/* Show search radius circle */}
-        {searchCenter && (
-          <Circle
-            center={searchCenter}
-            radius={1609.34} // 1 mile in meters
-            pathOptions={{ 
-              color: '#dc3545', 
-              fillColor: '#dc3545',
-              fillOpacity: 0.1,
-              weight: 2
-            }}
-          />
-        )}
       </MapContainer>
 
+      {/* Additional CSS styles for the collapsible panel */}
+      <style jsx>{`
+        .filter-panel-container {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          z-index: 1000;
+          transition: all 0.3s ease;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          max-width: 300px;
+        }
+        
+        .filter-panel-container.collapsed {
+          width: 50px;
+        }
+        
+        .filter-panel-container.expanded {
+          width: 280px;
+        }
+        
+        .filter-toggle-button {
+          width: 100%;
+          padding: 12px;
+          background: #3498db;
+          color: white;
+          border: none;
+          border-radius: 8px 8px 0 0;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 8px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        }
+        
+        .filter-toggle-button:hover {
+          background: #2980b9;
+        }
+        
+        .filter-panel-container.collapsed .filter-toggle-button {
+          border-radius: 8px;
+          justify-content: center;
+        }
+        
+        .filter-toggle-arrow {
+          font-size: 12px;
+          transition: transform 0.3s;
+        }
+        
+        .filter-panel-content.hidden {
+          display: none;
+        }
+        
+        .filter-panel-content.visible {
+          display: block;
+          padding: 0;
+        }
+        
+        .map-error-overlay {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 2000;
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+          max-width: 400px;
+          text-align: center;
+        }
+        
+        .dismiss-error-button {
+          margin-top: 10px;
+          padding: 8px 16px;
+          background: #e74c3c;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        
+        .dismiss-error-button:hover {
+          background: #c0392b;
+        }
+        
+        .entity-limit-info {
+          font-size: 11px;
+          color: #7f8c8d;
+          text-align: center;
+          margin-top: 4px;
+        }
+        
+        .low-results-warning {
+          font-size: 11px;
+          color: #e67e22;
+          margin-top: 4px;
+          text-align: center;
+        }
+        
+        .filter-info {
+          font-size: 10px;
+          color: #7f8c8d;
+          margin-top: 2px;
+          text-align: center;
+        }
+      `}</style>
     </div>
   );
 };
